@@ -1,4 +1,8 @@
+using Distributed.Caching.Controllers;
+using Distributed.Caching.Hangfire;
 using Distributed.Caching.Service;
+using Hangfire;
+using Hangfire.MemoryStorage;
 using Newtonsoft.Json;
 using System.Runtime.Serialization;
 using System.Text;
@@ -16,10 +20,25 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddStackExchangeRedisCache(options => options.Configuration = "localhost:1453");
 
 
+builder.Services.AddHangfire(config => config
+           .SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
+           .UseSimpleAssemblyNameTypeSerializer()
+           .UseRecommendedSerializerSettings()
+           .UseMemoryStorage());
+
+
 builder.Services.AddScoped<ICurrencyService, CurrencyService>();
+builder.Services.AddScoped<ICurrencyIntegrationService, CurrencyIntegrationService>();
+builder.Services.AddScoped<CurrencyJob>();
+
+builder.Services.AddHangfireServer();
 
 var app = builder.Build();
 
+app.UseHangfireDashboard();
+
+// 5 saatte bir çalýþacak görevi ayarla
+RecurringJob.AddOrUpdate<CurrencyJob>("update-currency", x => x.UpdateCurrencyData(), Cron.MinuteInterval(1));
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -29,7 +48,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
 
 app.MapControllers();

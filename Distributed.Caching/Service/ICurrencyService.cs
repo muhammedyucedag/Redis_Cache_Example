@@ -4,6 +4,7 @@ namespace Distributed.Caching.Service
 {
     public interface ICurrencyService
     {
-        Task<CurrencyResponse> GetCurrencyDataAsync();
+        Task <Currency> GetUSDCurrencyAsync();
+
     }
 }

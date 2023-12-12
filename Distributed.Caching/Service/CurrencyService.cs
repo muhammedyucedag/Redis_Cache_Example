@@ -1,27 +1,36 @@
-﻿using Distributed.Caching.Models;
-using System.Text;
-using System.Xml.Serialization;
+﻿using AsyncLazy;
+using Distributed.Caching.Models;
+using Microsoft.Extensions.Caching.Distributed;
+using Newtonsoft.Json;
 
 namespace Distributed.Caching.Service
 {
     public class CurrencyService : ICurrencyService
     {
-        private readonly HttpClient _client;
+        private readonly IDistributedCache _distributedCache;
+        private readonly AsyncLazy<Currency> _USDCurrency;
 
-        public CurrencyService()
+        public CurrencyService(IDistributedCache distributedCache)
         {
-            _client = new HttpClient();
+            _distributedCache = distributedCache;
+            _USDCurrency = new AsyncLazy<Currency>( async () => await _GetUSDCurrencyAsync());
         }
 
-        public async Task<CurrencyResponse> GetCurrencyDataAsync()
+        private async Task<Currency> _GetUSDCurrencyAsync()
         {
-            var response = await _client.GetStringAsync("https://www.tcmb.gov.tr/kurlar/today.xml");
+            var cachedData = await _distributedCache.GetStringAsync("USDCurrency");
 
-            XmlSerializer xmlSerializer = new XmlSerializer(typeof(CurrencyResponse));
-            using (MemoryStream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(response)))
+            if (cachedData != null)
             {
-                return (CurrencyResponse)xmlSerializer.Deserialize(memoryStream);
+                var cachedCurrencies = JsonConvert.DeserializeObject<Currency>(cachedData);
+                return cachedCurrencies;
             }
+            return new();
+        }
+
+        public async Task<Currency> GetUSDCurrencyAsync()
+        {
+            return await _USDCurrency.GetValueAsync();
         }
     }
 }
